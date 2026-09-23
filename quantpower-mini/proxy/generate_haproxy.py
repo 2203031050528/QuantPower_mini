@@ -1,11 +1,9 @@
-from .models import ProxyAllocation
+from proxy.models import ProxyAllocation
 
 
-def generate_config():
+def generate_config(dhan_host):
 
-    lines = []
-
-    lines.append(
+    lines = [
         """
 global
     log stdout format raw
@@ -13,27 +11,34 @@ global
 defaults
     mode tcp
     timeout connect 10s
-    timeout client  1m
-    timeout server  1m
-
+    timeout client 5m
+    timeout server 5m
 """
-    )
+    ]
 
-    allocations = ProxyAllocation.objects.filter(
-        is_active=True
-    ).select_related("eip", "user")
+    allocations = (
+        ProxyAllocation.objects
+        .filter(is_active=True)
+        .select_related("eip", "user")
+        .order_by("proxy_port")
+    )
 
     for allocation in allocations:
 
+        user_id = allocation.user.id
+        port = allocation.proxy_port
+        private_ip = allocation.eip.private_ip
+
         lines.append(
             f"""
-frontend user_{allocation.user.id}
-    bind *:{allocation.proxy_port}
-    default_backend user_{allocation.user.id}_backend
+frontend user_{user_id}
+    bind *:{port}
+    default_backend user_{user_id}_backend
 
-backend user_{allocation.user.id}_backend
+backend user_{user_id}_backend
     mode tcp
-    server dhan dhan.example.com:443
+    source {private_ip}
+    server dhan {dhan_host}:443
 """
         )
 
