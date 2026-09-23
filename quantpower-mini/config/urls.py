@@ -32,5 +32,9 @@ urlpatterns = [
         "api/orders/",
         include("orders.urls")
     ),
+    path(
+    "api/proxy/",
+    include("proxy.urls"),
+),
 
 ]
