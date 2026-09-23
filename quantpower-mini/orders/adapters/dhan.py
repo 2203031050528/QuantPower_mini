@@ -1,5 +1,7 @@
-from dhan.models import DhanAccount
 import requests
+
+from dhan.models import DhanAccount
+from proxy.services import ProxyService
 
 
 class DhanAdapter:
@@ -7,7 +9,6 @@ class DhanAdapter:
     BASE_URL = "https://api.dhan.co"
 
     def __init__(self, user):
-
         self.user = user
 
         try:
@@ -29,6 +30,9 @@ class DhanAdapter:
             "Content-Type": "application/json",
         }
 
+    def get_proxy(self):
+        return ProxyService().get_user_proxy(self.user)
+
     def build_order_payload(
         self,
         security_id,
@@ -39,7 +43,6 @@ class DhanAdapter:
         exchange_segment="NSE_FNO",
         price=0,
     ):
-
         return {
             "dhanClientId": self.account.client_id,
             "transactionType": side,
@@ -50,16 +53,3 @@ class DhanAdapter:
             "quantity": quantity,
             "price": price,
         }
-
-    def send_order(self, payload):
-
-        response = requests.post(
-            f"{self.BASE_URL}/orders",
-            headers=self.headers,
-            json=payload,
-            timeout=10,
-        )
-
-        response.raise_for_status()
-
-        return response.json()

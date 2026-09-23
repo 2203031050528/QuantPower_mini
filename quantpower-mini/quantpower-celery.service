@@ -1,0 +1,23 @@
+[Unit]
+Description=QuantPower Celery Worker
+After=network.target
+
+[Service]
+Type=simple
+
+User=ubuntu
+Group=www-data
+
+WorkingDirectory=/var/www/quantpower/QuantPower_mini/quantpower-mini
+
+EnvironmentFile=/var/www/quantpower/QuantPower_mini/quantpower-mini/.env
+
+ExecStart=/var/www/quantpower/QuantPower_mini/venv/bin/celery \
+    -A config worker \
+    --loglevel=info
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

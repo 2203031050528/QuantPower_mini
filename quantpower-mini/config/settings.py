@@ -15,7 +15,8 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -25,7 +26,13 @@ SECRET_KEY = 'django-insecure-h2bb((b@2*#-h=rl=%8@m&*hftywwt*4hj^b*&m_7#fc5=on&2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+import os
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+]
 
 import os
 from dotenv import load_dotenv
@@ -165,7 +172,13 @@ REDIS_URL = os.getenv(
 )
 
 
+CELERY_BROKER_URL = os.getenv(
+    "REDIS_URL"
+)
 
+CELERY_RESULT_BACKEND = os.getenv(
+    "REDIS_URL"
+)
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",

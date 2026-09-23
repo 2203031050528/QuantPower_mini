@@ -76,17 +76,20 @@ from rest_framework.views import APIView
 from .adapters.dhan import DhanAdapter
 
 
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .adapters.dhan import DhanAdapter
+
+
 class DhanOrderPreviewView(APIView):
 
-    permission_classes = [
-        IsAuthenticated
-    ]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
 
-        adapter = DhanAdapter(
-            request.user
-        )
+        adapter = DhanAdapter(request.user)
 
         payload = adapter.build_order_payload(
             security_id=request.data["security_id"],
@@ -96,14 +99,19 @@ class DhanOrderPreviewView(APIView):
                 "order_type",
                 "MARKET",
             ),
-            price=request.data.get(
-                "price",
-                0,
-            ),
         )
+
+        proxy = adapter.get_proxy()
 
         return Response({
             "dry_run": True,
             "broker": "DHAN",
+
+            "proxy": {
+                "host": proxy["host"],
+                "port": proxy["port"],
+                "public_ip": proxy["public_ip"],
+            },
+
             "payload": payload,
         })

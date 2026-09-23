@@ -25,6 +25,7 @@ class EIPPool(models.Model):
         return self.public_ip
 
 
+
 class ProxyAllocation(models.Model):
 
     user = models.OneToOneField(
@@ -54,9 +55,3 @@ class ProxyAllocation(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True
     )
-
-    def __str__(self):
-        return (
-            f"{self.user.username} → "
-            f"{self.eip.public_ip}:{self.proxy_port}"
-        )
