@@ -187,3 +187,12 @@ CHANNEL_LAYERS = {
         },
     },
 }
+
+
+LIVE_TRADING_ENABLED = (
+    os.getenv(
+        "LIVE_TRADING_ENABLED",
+        "False",
+    ).lower()
+    == "true"
+)

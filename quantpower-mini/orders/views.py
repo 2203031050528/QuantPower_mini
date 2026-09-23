@@ -115,3 +115,63 @@ class DhanOrderPreviewView(APIView):
 
             "payload": payload,
         })
+
+
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .oms import OrderManagementSystem
+
+
+class OrderCreateView(APIView):
+
+    permission_classes = [
+        IsAuthenticated
+    ]
+
+    def post(self, request):
+
+        oms = OrderManagementSystem()
+
+        try:
+
+            order = oms.create_order(
+                user=request.user,
+                security_id=request.data["security_id"],
+                symbol=request.data["symbol"],
+                side=request.data["side"],
+                quantity=int(
+                    request.data["quantity"]
+                ),
+                order_type=request.data.get(
+                    "order_type",
+                    "MARKET",
+                ),
+                price=request.data.get(
+                    "price",
+                    0,
+                ),
+                mode=request.data.get(
+                    "mode",
+                    "VIRTUAL",
+                ),
+            )
+
+            order = oms.execute(order)
+
+            return Response({
+                "success": True,
+                "order_id": order.id,
+                "status": order.status,
+            })
+
+        except Exception as exc:
+
+            return Response(
+                {
+                    "success": False,
+                    "error": str(exc),
+                },
+                status=400,
+            )

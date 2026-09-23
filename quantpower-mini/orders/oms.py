@@ -1,11 +1,11 @@
 from django.contrib.auth import base_user
 from decimal import Decimal
-
+from proxy.services import ProxyService
 from django.db import transaction
 
 from .models import Order, Position
 from .adapters.dhan import DhanAdapter
-
+from django.conf import settings
 class OrderManagementSystem:
 
     @transaction.atomic
@@ -16,9 +16,9 @@ class OrderManagementSystem:
         symbol,
         side,
         quantity,
-        price,
-        mode="VIRTUAL",
         order_type="MARKET",
+        price=0,
+        mode="VIRTUAL",
     ):
 
         if quantity <= 0:
@@ -42,40 +42,11 @@ class OrderManagementSystem:
             symbol=symbol,
             side=side,
             quantity=quantity,
+            order_type=order_type,
             price=price,
             mode=mode,
-            order_type=order_type,
             status="PENDING",
         )
-
-        if mode == "VIRTUAL":
-
-            self.execute_virtual_order(order)
-
-        else:
-
-            adapter = self.get_broker_adapter(user)
-
-            payload = adapter.build_order_payload(
-                security_id=security_id,
-                quantity=quantity,
-                side=side,
-                order_type=order_type,
-                price=price or 0,
-            )
-            # IMPORTANT:
-            # Do not send to Dhan yet.
-            #
-            # adapter.send_order(payload)
-
-            order.status = "PENDING"
-
-            order.save(
-                update_fields=[
-                    "status",
-                    "updated_at",
-                ]
-            )
 
         return order
 
@@ -154,3 +125,101 @@ class OrderManagementSystem:
     def get_broker_adapter(self, user):
 
         return DhanAdapter(user)
+
+    def get_proxy(self, user):
+        return ProxyService().get_user_proxy(user)
+
+    def select_proxy(self, order):
+
+        proxy = self.get_proxy(order.user)
+
+        order.proxy_ip = proxy["public_ip"]
+        order.proxy_port = proxy["port"]
+
+        order.status = "PROXY_SELECTED"
+
+        order.save(
+            update_fields=[
+                "proxy_ip",
+                "proxy_port",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        return proxy
+
+    def build_broker_payload(self, order):
+
+        adapter = self.get_broker_adapter(
+            order.user
+        )
+
+        return adapter.build_order_payload(
+            security_id=order.security_id,
+            quantity=order.quantity,
+            side=order.side,
+            order_type=order.order_type,
+            price=float(order.price),
+        )
+
+    def execute(self, order):
+
+        proxy = self.select_proxy(order)
+
+        payload = self.build_broker_payload(order)
+
+        if order.mode == "VIRTUAL":
+            return self.execute_virtual_order(order)
+
+        return self.execute_live_order(
+            order,
+            proxy,
+            payload,
+        )
+
+    def execute_virtual_order(self, order):
+
+        try:
+            # Existing virtual position logic here
+
+            order.status = "EXECUTED"
+
+            order.save(
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ]
+            )
+
+            return order
+
+        except Exception as exc:
+
+            order.status = "FAILED"
+            order.error_message = str(exc)
+
+            order.save(
+                update_fields=[
+                    "status",
+                    "error_message",
+                    "updated_at",
+                ]
+            )
+
+            raise
+
+
+    def execute_live_order(
+        self,
+        order,
+        proxy,
+        payload,
+    ):
+
+        if not settings.LIVE_TRADING_ENABLED:
+            raise RuntimeError(
+                "Live trading is disabled"
+            )
+
+        # Actual broker call will be added later.
