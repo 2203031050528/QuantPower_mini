@@ -1,9 +1,15 @@
 import random
 import time
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import (
+    BaseCommand,
+)
 
-from market.redis_service import save_tick
+from market.redis_service import (
+    save_tick,
+    publish_tick,
+)
+
 from market.router import MarketRouter
 
 
@@ -11,7 +17,11 @@ class Command(BaseCommand):
 
     help = "Generate mock market ticks"
 
-    def handle(self, *args, **options):
+    def handle(
+        self,
+        *args,
+        **options,
+    ):
 
         router = MarketRouter()
 
@@ -33,19 +43,24 @@ class Command(BaseCommand):
             tick = {
                 "symbol": "NIFTY",
                 "security_id": "12345",
-                "ltp": round(price, 2),
-                "timestamp": time.strftime(
-                    "%Y-%m-%d %H:%M:%S"
+                "ltp": round(
+                    price,
+                    2,
+                ),
+                "timestamp": (
+                    time.strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
                 ),
             }
 
-            # 1. Store latest tick in Redis
             save_tick(
                 "12345",
                 tick,
             )
 
-            # 2. Send tick to WebSocket users
+            publish_tick(tick)
+
             router.route(tick)
 
             self.stdout.write(
