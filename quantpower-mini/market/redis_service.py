@@ -1,6 +1,6 @@
 import json
-
 import redis
+
 from django.conf import settings
 
 
@@ -32,9 +32,7 @@ def get_tick(security_id):
 
 
 def publish_tick(tick):
-    channel = "market:ticks"
-
     redis_client.publish(
-        channel,
+        "market:ticks",
         json.dumps(tick),
     )

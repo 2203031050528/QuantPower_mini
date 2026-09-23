@@ -1,13 +1,20 @@
 import json
 
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.generic.websocket import (
+    AsyncWebsocketConsumer,
+)
 
 
-class MarketConsumer(AsyncWebsocketConsumer):
+class MarketConsumer(
+    AsyncWebsocketConsumer
+):
+
+    GROUP_NAME = "market_data"
 
     async def connect(self):
+
         await self.channel_layer.group_add(
-            "market_data",
+            self.GROUP_NAME,
             self.channel_name,
         )
 
@@ -16,18 +23,26 @@ class MarketConsumer(AsyncWebsocketConsumer):
         await self.send(
             text_data=json.dumps({
                 "type": "connection",
-                "message": "Market WebSocket connected",
+                "message": (
+                    "Market WebSocket connected"
+                ),
             })
         )
 
-    async def disconnect(self, close_code):
+    async def disconnect(
+        self,
+        close_code,
+    ):
 
         await self.channel_layer.group_discard(
-            "market_data",
+            self.GROUP_NAME,
             self.channel_name,
         )
 
-    async def market_tick(self, event):
+    async def market_tick(
+        self,
+        event,
+    ):
 
         await self.send(
             text_data=json.dumps(
