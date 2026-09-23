@@ -4,46 +4,46 @@ from django.db import models
 
 class Order(models.Model):
 
-    ORDER_TYPES = [
-        ("MARKET", "Market"),
-        ("LIMIT", "Limit"),
-    ]
-
-    SIDES = [
-        ("BUY", "Buy"),
-        ("SELL", "Sell"),
-    ]
-
-    MODES = [
-        ("VIRTUAL", "Virtual"),
-        ("LIVE", "Live"),
-    ]
-
-    STATUSES = [
+    STATUS_CHOICES = [
         ("PENDING", "Pending"),
+        ("PROXY_SELECTED", "Proxy Selected"),
+        ("SENT_TO_DHAN", "Sent to Dhan"),
         ("EXECUTED", "Executed"),
         ("FAILED", "Failed"),
         ("CANCELLED", "Cancelled"),
     ]
 
+    MODE_CHOICES = [
+        ("VIRTUAL", "Virtual"),
+        ("LIVE", "Live"),
+    ]
+
+    SIDE_CHOICES = [
+        ("BUY", "Buy"),
+        ("SELL", "Sell"),
+    ]
+
+    ORDER_TYPE_CHOICES = [
+        ("MARKET", "Market"),
+        ("LIMIT", "Limit"),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="orders",
     )
 
     security_id = models.CharField(max_length=50)
-
     symbol = models.CharField(max_length=100)
 
     side = models.CharField(
         max_length=10,
-        choices=SIDES,
+        choices=SIDE_CHOICES,
     )
 
     order_type = models.CharField(
         max_length=10,
-        choices=ORDER_TYPES,
+        choices=ORDER_TYPE_CHOICES,
     )
 
     quantity = models.PositiveIntegerField()
@@ -51,29 +51,37 @@ class Order(models.Model):
     price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
-        null=True,
-        blank=True,
+        default=0,
     )
 
     mode = models.CharField(
         max_length=10,
-        choices=MODES,
+        choices=MODE_CHOICES,
         default="VIRTUAL",
     )
 
     status = models.CharField(
-        max_length=20,
-        choices=STATUSES,
+        max_length=30,
+        choices=STATUS_CHOICES,
         default="PENDING",
     )
 
     broker_order_id = models.CharField(
         max_length=100,
         blank=True,
-        null=True,
     )
 
     error_message = models.TextField(
+        blank=True,
+    )
+
+    proxy_ip = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+    )
+
+    proxy_port = models.PositiveIntegerField(
+        null=True,
         blank=True,
     )
 
@@ -84,16 +92,6 @@ class Order(models.Model):
     updated_at = models.DateTimeField(
         auto_now=True,
     )
-
-    def __str__(self):
-        return (
-            f"{self.user.username} - "
-            f"{self.symbol} - "
-            f"{self.side} - "
-            f"{self.quantity}"
-        )
-
-
 class Position(models.Model):
 
     user = models.ForeignKey(
