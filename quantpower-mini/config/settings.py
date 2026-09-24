@@ -252,3 +252,5 @@ LIVE_TRADING_ENABLED = (
     ).lower()
     == "true"
 )
+DHAN_CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
+DHAN_ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
