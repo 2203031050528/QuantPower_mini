@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>QuantPower Market Dashboard</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+
+        .dashboard {
+            width: 360px;
+            padding: 35px;
+
+            text-align: center;
+
+            background: #1e293b;
+            border-radius: 16px;
+
+            box-shadow:
+                0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        .symbol {
+            margin: 0;
+
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .price {
+            margin: 25px 0;
+
+            font-size: 48px;
+            font-weight: bold;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+
+            padding: 8px 14px;
+
+            border-radius: 20px;
+
+            background: #064e3b;
+            color: #6ee7b7;
+
+            font-size: 14px;
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+
+            border-radius: 50%;
+
+            background: #22c55e;
+        }
+
+        .error {
+            margin-top: 20px;
+
+            font-size: 13px;
+            color: #f87171;
+        }
+
+        .login input {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            background: #0f172a;
+            color: white;
+        }
+
+        .login button, .logout {
+            width: 100%;
+            padding: 10px;
+            border: 0;
+            border-radius: 8px;
+            background: #22c55e;
+            color: #0f172a;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .logout {
+            margin-top: 20px;
+            background: #334155;
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <form id="loginForm" class="dashboard login">
+        <h2 class="symbol">QuantPower Login</h2>
+        <input id="username" placeholder="Username" autocomplete="username" required>
+        <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+        <button type="submit">Login</button>
+        <div id="loginError" class="error"></div>
+    </form>
+
+    <div id="dashboard" class="dashboard hidden">
+
+        <h2 id="symbol" class="symbol">
+            NIFTY
+        </h2>
+
+        <h1 id="price" class="price">
+            --
+        </h1>
+
+        <div class="status">
+            <span id="statusDot" class="dot"></span>
+            <span id="statusText">CONNECTING...</span>
+        </div>
+
+        <div id="error" class="error"></div>
+
+        <button id="logoutBtn" class="logout">Logout</button>
+
+    </div>
+
+
+    <script>
+
+        const API_BASE = "http://13.48.134.78";
+        const LOGIN_URL = API_BASE + "/api/auth/login/";
+        const WS_URL = "ws://13.48.134.78/ws/market/";
+
+        let socket = null;
+
+
+        // --------------------------------
+        // Login (SimpleJWT)
+        // --------------------------------
+
+        document.getElementById("loginForm").onsubmit = async (e) => {
+
+            e.preventDefault();
+
+            const loginError = document.getElementById("loginError");
+            loginError.innerText = "";
+
+            try {
+
+                const res = await fetch(LOGIN_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        username: document.getElementById("username").value,
+                        password: document.getElementById("password").value,
+                    }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    loginError.innerText = data.detail || "Login failed.";
+                    return;
+                }
+
+                localStorage.setItem("access", data.access);
+                localStorage.setItem("refresh", data.refresh);
+
+                showDashboard();
+            }
+
+            catch (error) {
+                console.error("Login error:", error);
+                loginError.innerText = "Cannot reach server (network/CORS).";
+            }
+        };
+
+
+        document.getElementById("logoutBtn").onclick = () => {
+            localStorage.removeItem("access");
+            localStorage.removeItem("refresh");
+            if (socket) socket.close();
+            document.getElementById("dashboard").classList.add("hidden");
+            document.getElementById("loginForm").classList.remove("hidden");
+        };
+
+
+        function showDashboard() {
+            document.getElementById("loginForm").classList.add("hidden");
+            document.getElementById("dashboard").classList.remove("hidden");
+            connectSocket();
+        }
+
+
+        function connectSocket() {
+
+        const token = localStorage.getItem("access");
+
+        socket = new WebSocket(
+            WS_URL + "?token=" + encodeURIComponent(token)
+        );
+
+
+        // --------------------------------
+        // WebSocket Connected
+        // --------------------------------
+
+        socket.onopen = () => {
+
+            console.log(
+                "WebSocket CONNECTED"
+            );
+
+            document.getElementById(
+                "statusText"
+            ).innerText = "LIVE";
+
+            document.getElementById(
+                "error"
+            ).innerText = "";
+        };
+
+
+        // --------------------------------
+        // Receive Market Data
+        // --------------------------------
+
+        socket.onmessage = (event) => {
+
+            try {
+
+                const tick =
+                    JSON.parse(event.data);
+
+                console.log(
+                    "MARKET TICK:",
+                    tick
+                );
+
+
+                // Ignore connection message
+                if (
+                    tick.type === "connection"
+                ) {
+                    console.log(
+                        tick.message
+                    );
+
+                    return;
+                }
+
+
+                // Update symbol
+                if (tick.symbol) {
+
+                    document.getElementById(
+                        "symbol"
+                    ).innerText =
+                        tick.symbol;
+                }
+
+
+                // Update price
+                const price =
+                    tick.ltp ??
+                    tick.price;
+
+                if (price !== undefined) {
+
+                    document.getElementById(
+                        "price"
+                    ).innerText =
+                        Number(price)
+                            .toFixed(2);
+                }
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    "Invalid WebSocket message:",
+                    error
+                );
+
+            }
+
+        };
+
+
+        // --------------------------------
+        // WebSocket Error
+        // --------------------------------
+
+        socket.onerror = (error) => {
+
+            console.error(
+                "WebSocket ERROR:",
+                error
+            );
+
+            document.getElementById(
+                "statusText"
+            ).innerText =
+                "ERROR";
+
+            document.getElementById(
+                "error"
+            ).innerText =
+                "WebSocket connection failed.";
+        };
+
+
+        // --------------------------------
+        // WebSocket Closed
+        // --------------------------------
+
+        socket.onclose = (event) => {
+
+            console.log(
+                "WebSocket DISCONNECTED",
+                event.code,
+                event.reason
+            );
+
+            document.getElementById(
+                "statusText"
+            ).innerText =
+                "DISCONNECTED";
+        };
+
+        }
+
+
+        if (localStorage.getItem("access")) {
+            showDashboard();
+        }
+
+    </script>
+
+</body>
+</html>
